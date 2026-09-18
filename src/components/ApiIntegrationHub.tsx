@@ -1,4 +1,5 @@
 import {
+  AlertCircle,
   Check,
   CheckCircle2,
   ChevronDown,
@@ -13,8 +14,16 @@ import {
   Terminal,
   Zap,
 } from 'lucide-react';
-import { useState } from 'react';
-import { API_SCHEMA_BLUEPRINT, getApiBaseUrl, setApiBaseUrl, testBackendConnection } from '../services/propertyApi';
+import { useEffect, useState } from 'react';
+import {
+  API_SCHEMA_BLUEPRINT,
+  fetchUraServerlessStatus,
+  getApiBaseUrl,
+  setApiBaseUrl,
+  testBackendConnection,
+  testUraDailyToken,
+  testUraTransactions,
+} from '../services/propertyApi';
 import { BackendConnectionStatus } from '../types/property';
 
 interface ApiIntegrationHubProps {
@@ -35,6 +44,52 @@ export function ApiIntegrationHub({ status, onRefresh, onClose }: ApiIntegration
   } | null>(null);
   const [copiedIndex, setCopiedIndex] = useState<number | null>(null);
   const [activeEndpointIndex, setActiveEndpointIndex] = useState<number>(0);
+
+  // URA Serverless Connection State
+  const [uraStatus, setUraStatus] = useState<{
+    configured: boolean;
+    keyConfigured: boolean;
+    cachedTokenAvailable: boolean;
+    cachedTokenDate: string | null;
+    singaporeDate: string;
+    error?: string;
+  } | null>(null);
+  const [uraTestingToken, setUraTestingToken] = useState(false);
+  const [uraTestingTx, setUraTestingTx] = useState(false);
+  const [uraOutput, setUraOutput] = useState<any>(null);
+
+  useEffect(() => {
+    checkUraStatus();
+  }, []);
+
+  const checkUraStatus = async () => {
+    const s = await fetchUraServerlessStatus();
+    setUraStatus(s);
+  };
+
+  const handleTestUraToken = async (force = false) => {
+    setUraTestingToken(true);
+    setUraOutput(null);
+    try {
+      const res = await testUraDailyToken(force);
+      setUraOutput({ testType: "Step 1: Daily Token Exchange (GET /api/token)", ...res });
+      checkUraStatus();
+    } finally {
+      setUraTestingToken(false);
+    }
+  };
+
+  const handleTestUraTransactions = async (batch = 1) => {
+    setUraTestingTx(true);
+    setUraOutput(null);
+    try {
+      const res = await testUraTransactions(batch);
+      setUraOutput({ testType: `Step 2: PMI_Resi_Transaction Data Call (Batch ${batch})`, ...res });
+      checkUraStatus();
+    } finally {
+      setUraTestingTx(false);
+    }
+  };
 
   const handleSaveUrl = () => {
     setIsSaving(true);
@@ -150,6 +205,154 @@ export function ApiIntegrationHub({ status, onRefresh, onClose }: ApiIntegration
             )}
           </div>
         </div>
+      </div>
+
+      {/* URA Serverless Connection Tester */}
+      <div className="bg-white border border-slate-200 rounded-xl p-6 shadow-xs space-y-4">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+          <div>
+            <div className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-xs font-semibold bg-emerald-50 text-emerald-800 border border-emerald-200 mb-1">
+              <Database className="w-3.5 h-3.5" />
+              URA Serverless Connector (/api)
+            </div>
+            <h3 className="text-base font-bold text-slate-900">
+              Singapore Urban Redevelopment Authority (URA) Data Connection
+            </h3>
+            <p className="text-xs text-slate-600">
+              Two-step authenticated serverless workflow with daily token caching and transaction queries.
+            </p>
+          </div>
+
+          <div className="flex items-center gap-2">
+            <span
+              className={`text-xs px-2.5 py-1 rounded-md font-mono font-semibold flex items-center gap-1.5 border ${
+                uraStatus?.configured
+                  ? 'bg-emerald-50 text-emerald-800 border-emerald-200'
+                  : 'bg-amber-50 text-amber-800 border-amber-200'
+              }`}
+            >
+              <span
+                className={`w-2 h-2 rounded-full ${
+                  uraStatus?.configured ? 'bg-emerald-500' : 'bg-amber-500 animate-pulse'
+                }`}
+              ></span>
+              URA_ACCESS_KEY: {uraStatus?.configured ? 'Configured' : 'Not Set in .env'}
+            </span>
+          </div>
+        </div>
+
+        {/* Workflow steps overview */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs pt-2">
+          {/* Step 1 Card */}
+          <div className="p-4 rounded-lg bg-slate-50 border border-slate-200 flex flex-col justify-between">
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <span className="font-bold text-slate-900 flex items-center gap-1.5">
+                  <span className="w-5 h-5 rounded-full bg-slate-900 text-white flex items-center justify-center text-[10px]">
+                    1
+                  </span>
+                  Trade AccessKey for Today's Token
+                </span>
+                <span className="text-[10px] font-mono text-slate-500">
+                  {uraStatus?.cachedTokenAvailable ? "Today's Token Cached" : 'No Token Cached'}
+                </span>
+              </div>
+              <p className="text-slate-600 leading-relaxed">
+                Trades <code className="font-mono text-slate-900 font-semibold">AccessKey</code> for today's token via URA's <code className="font-mono text-slate-800">insertNewToken/v1</code>.
+              </p>
+              <div className="font-mono text-[11px] p-2 bg-white rounded border border-slate-200 text-slate-700 break-all">
+                Header: <span className="font-semibold text-slate-900">AccessKey: &lt;URA_ACCESS_KEY&gt;</span>
+              </div>
+            </div>
+
+            <div className="mt-4 pt-3 border-t border-slate-200 flex items-center gap-2">
+              <button
+                id="btn-test-ura-token"
+                type="button"
+                onClick={() => handleTestUraToken(false)}
+                disabled={uraTestingToken}
+                className="px-3 py-1.5 bg-slate-900 text-white rounded-lg text-xs font-semibold hover:bg-slate-800 transition-colors disabled:opacity-50 flex items-center gap-1.5"
+              >
+                <Key className="w-3.5 h-3.5 text-amber-400" />
+                {uraTestingToken ? 'Trading...' : "Exchange for Today's Token"}
+              </button>
+              <button
+                id="btn-force-ura-token"
+                type="button"
+                onClick={() => handleTestUraToken(true)}
+                disabled={uraTestingToken}
+                title="Bypass memory cache and request fresh token"
+                className="px-2.5 py-1.5 bg-white border border-slate-300 text-slate-600 rounded-lg text-xs hover:bg-slate-50 transition-colors disabled:opacity-50"
+              >
+                Force Fresh
+              </button>
+            </div>
+          </div>
+
+          {/* Step 2 Card */}
+          <div className="p-4 rounded-lg bg-slate-50 border border-slate-200 flex flex-col justify-between">
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <span className="font-bold text-slate-900 flex items-center gap-1.5">
+                  <span className="w-5 h-5 rounded-full bg-slate-900 text-white flex items-center justify-center text-[10px]">
+                    2
+                  </span>
+                  Data Calls (Both Headers)
+                </span>
+                <span className="text-[10px] font-mono text-slate-500">
+                  PMI_Resi_Transaction
+                </span>
+              </div>
+              <p className="text-slate-600 leading-relaxed">
+                Queries URA dataset sending <code className="font-mono text-slate-900 font-semibold">AccessKey</code> AND <code className="font-mono text-slate-900 font-semibold">Token</code> headers.
+              </p>
+              <div className="font-mono text-[11px] p-2 bg-white rounded border border-slate-200 text-slate-700 break-all space-y-1">
+                <div>Header: <span className="font-semibold text-slate-900">AccessKey: &lt;URA_ACCESS_KEY&gt;</span></div>
+                <div>Header: <span className="font-semibold text-slate-900">Token: &lt;URA_DAILY_TOKEN&gt;</span></div>
+              </div>
+            </div>
+
+            <div className="mt-4 pt-3 border-t border-slate-200 flex items-center gap-2">
+              <button
+                id="btn-test-ura-tx-1"
+                type="button"
+                onClick={() => handleTestUraTransactions(1)}
+                disabled={uraTestingTx}
+                className="px-3 py-1.5 bg-emerald-700 text-white rounded-lg text-xs font-semibold hover:bg-emerald-800 transition-colors disabled:opacity-50 flex items-center gap-1.5"
+              >
+                <Database className="w-3.5 h-3.5" />
+                {uraTestingTx ? 'Querying URA...' : 'Fetch Batch 1 Transactions'}
+              </button>
+              <button
+                id="btn-test-ura-tx-2"
+                type="button"
+                onClick={() => handleTestUraTransactions(2)}
+                disabled={uraTestingTx}
+                className="px-2.5 py-1.5 bg-white border border-slate-300 text-slate-700 rounded-lg text-xs hover:bg-slate-50 transition-colors disabled:opacity-50"
+              >
+                Batch 2
+              </button>
+            </div>
+          </div>
+        </div>
+
+        {/* Live URA Output / Response Inspector */}
+        {uraOutput && (
+          <div className="mt-3 border border-slate-200 rounded-lg overflow-hidden bg-slate-950 text-slate-200">
+            <div className="px-4 py-2 bg-slate-900 border-b border-slate-800 flex items-center justify-between text-xs font-mono">
+              <span className="text-amber-400 font-semibold flex items-center gap-1.5">
+                <Terminal className="w-3.5 h-3.5" />
+                {uraOutput.testType || 'URA Test Result'}
+              </span>
+              <span className={uraOutput.success ? 'text-emerald-400' : 'text-red-400'}>
+                {uraOutput.success ? '200 SUCCESS' : 'FAILED / CONFIG REQUIRED'}
+              </span>
+            </div>
+            <pre className="p-4 text-xs font-mono overflow-x-auto max-h-64 text-emerald-300">
+              {JSON.stringify(uraOutput, null, 2)}
+            </pre>
+          </div>
+        )}
       </div>
 
       {/* Integration Guide Steps */}

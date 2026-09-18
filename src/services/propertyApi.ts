@@ -180,10 +180,110 @@ export async function testBackendConnection(customUrl?: string): Promise<{
 }
 
 /**
+ * URA Connector status and test helpers
+ */
+export async function fetchUraServerlessStatus(): Promise<{
+  configured: boolean;
+  keyConfigured: boolean;
+  cachedTokenAvailable: boolean;
+  cachedTokenDate: string | null;
+  singaporeDate: string;
+  error?: string;
+}> {
+  const baseUrl = getApiBaseUrl();
+  try {
+    const res = await fetch(`${baseUrl}/ura/status`);
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const json = await res.json();
+    return json.ura || { configured: false, keyConfigured: false, cachedTokenAvailable: false, cachedTokenDate: null, singaporeDate: '' };
+  } catch (err: any) {
+    return {
+      configured: false,
+      keyConfigured: false,
+      cachedTokenAvailable: false,
+      cachedTokenDate: null,
+      singaporeDate: '',
+      error: err.message,
+    };
+  }
+}
+
+export async function testUraDailyToken(force = false): Promise<any> {
+  const baseUrl = getApiBaseUrl();
+  try {
+    const res = await fetch(`${baseUrl}/token${force ? '?force=true' : ''}`);
+    return await res.json();
+  } catch (err: any) {
+    return { success: false, error: err.message };
+  }
+}
+
+export async function testUraTransactions(batch = 1, force = false): Promise<any> {
+  const baseUrl = getApiBaseUrl();
+  try {
+    const res = await fetch(`${baseUrl}/transactions?batch=${batch}${force ? '&force=true' : ''}`);
+    return await res.json();
+  } catch (err: any) {
+    return { success: false, error: err.message };
+  }
+}
+
+/**
  * Expected schema documentation for developers connecting a backend
  */
 export const API_SCHEMA_BLUEPRINT = {
   endpoints: [
+    {
+      method: 'GET',
+      path: '/api/token',
+      description: "Serverless Daily Token Exchange (Step 1): Trades AccessKey for today's token at https://eservice.ura.gov.sg/uraDataService/insertNewToken/v1 with header AccessKey: <URA_ACCESS_KEY>.",
+      queryParams: [
+        { name: 'force', type: 'boolean', example: 'true', description: 'Bypasses memory cache and requests a brand new token from URA' }
+      ],
+      sampleResponse: {
+        success: true,
+        token: "f92a18b..._sample_token_...39c0",
+        date: "2025-01-20",
+        cached: false,
+        message: "Successfully generated today's URA token",
+        timestamp: "2025-01-20T08:30:00.000Z"
+      }
+    },
+    {
+      method: 'GET',
+      path: '/api/transactions',
+      description: "Serverless Transactions Feed (Step 2): Invokes https://eservice.ura.gov.sg/uraDataService/invokeUraDS/v1?service=PMI_Resi_Transaction&batch=1 sending BOTH AccessKey and Token headers.",
+      queryParams: [
+        { name: 'batch', type: 'number', example: 1, description: 'Batch index: 1, 2, 3, or 4 (URA splits residential transactions into 4 batches)' },
+        { name: 'format', type: 'string', example: 'properties', description: '"properties" for normalized list or "raw" for direct URA Result payload' },
+        { name: 'force', type: 'boolean', example: 'true', description: 'Forces token refresh if expired' }
+      ],
+      sampleResponse: {
+        success: true,
+        service: "PMI_Resi_Transaction",
+        batch: 1,
+        count: 1420,
+        data: [
+          {
+            id: "ura-THE-CREST-0424-06-10-0",
+            projectName: "THE CREST",
+            streetName: "PRINCE CHARLES CRESCENT",
+            district: "D03",
+            marketSegment: "RCR",
+            propertyType: "Condominium",
+            price: 1850000,
+            areaSqft: 775,
+            areaSqm: 72,
+            psf: 2387,
+            tenure: "99 Yrs From 21/12/2012",
+            floorLevel: "Level 06-10",
+            saleType: "Resale",
+            transactionDate: "2024-04-15",
+            source: "URA REALIS"
+          }
+        ]
+      }
+    },
     {
       method: 'GET',
       path: '/api/properties',

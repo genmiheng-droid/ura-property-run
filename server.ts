@@ -1,6 +1,15 @@
+import 'dotenv/config';
 import express from 'express';
 import path from 'path';
 import { createServer as createViteServer } from 'vite';
+import uraHandler, {
+  fetchUraData,
+  getUraAccessKey,
+  getUraStatus,
+  transformUraToProperties,
+} from './api/ura';
+import tokenHandler from './api/token';
+import transactionsHandler from './api/transactions';
 
 async function startServer() {
   const app = express();
@@ -10,13 +19,18 @@ async function startServer() {
 
   // Health check
   app.get('/api/health', (req, res) => {
+    const uraStatus = getUraStatus();
     res.json({
       status: 'ok',
-      service: 'Singapore Private Property Prices API Placeholder',
-      version: '1.0.0',
-      dataConnected: false,
+      service: 'Singapore Private Property Prices API Gateway',
+      version: '1.1.0',
+      dataConnected: uraStatus.configured,
+      uraIntegration: uraStatus,
       timestamp: new Date().toISOString(),
       endpoints: [
+        'GET /api/token (serverless daily token exchange)',
+        'GET /api/transactions (serverless PMI_Resi_Transaction feed)',
+        'GET /api/ura (serverless unified connector)',
         'GET /api/properties',
         'GET /api/properties/:id',
         'GET /api/market/summary',
@@ -26,29 +40,99 @@ async function startServer() {
     });
   });
 
-  // GET /api/properties - Placeholder endpoint for private property transactions & listings
-  // Query parameters:
-  // - district: string (e.g. "D09", "D10", "all")
-  // - segment: string ("CCR" | "RCR" | "OCR" | "all")
-  // - propertyType: string ("Condominium" | "Apartment" | "Landed" | "all")
-  // - minPrice, maxPrice: number
-  // - minPsf, maxPsf: number
-  // - tenure: string ("Freehold" | "Leasehold" | "all")
-  // - search: string
-  // - page: number, limit: number
-  app.get('/api/properties', (req, res) => {
-    const { district, segment, propertyType, search, page = '1', limit = '20' } = req.query;
+  // Serverless URA Connection Endpoints
+  // Step 1: Exchange AccessKey for daily token
+  app.all('/api/token', (req, res) => tokenHandler(req, res));
+  app.all('/api/ura/token', (req, res) => tokenHandler(req, res));
 
-    // Notice: As requested, no data is pre-populated here.
-    // Replace this array with real queries to your database (e.g. PostgreSQL, Cloud SQL, MongoDB)
-    // or proxy calls to Singapore URA REALIS API / PropertyGuru / 99.co data feeds.
+  // Step 2: Query URA PMI_Resi_Transaction with both headers
+  app.all('/api/transactions', (req, res) => transactionsHandler(req, res));
+  app.all('/api/ura/transactions', (req, res) => transactionsHandler(req, res));
+
+  // Unified serverless router & status
+  app.all('/api/ura', (req, res) => uraHandler(req, res));
+  app.get('/api/ura/status', (req, res) => {
     res.json({
       success: true,
-      message: 'Placeholder endpoint active. Connect your backend database or real estate API data source here.',
+      ura: getUraStatus(),
+      timestamp: new Date().toISOString()
+    });
+  });
+
+  // GET /api/properties - Returns live URA transactions if key is configured, else placeholder
+  app.get('/api/properties', async (req, res) => {
+    const { district, segment, propertyType, search, page = '1', limit = '20', batch = '1' } = req.query;
+    const pageNum = parseInt(page as string, 10) || 1;
+    const limitNum = parseInt(limit as string, 10) || 20;
+
+    // Check if user has provided URA_ACCESS_KEY
+    if (getUraAccessKey()) {
+      try {
+        const uraResult = await fetchUraData({
+          service: 'PMI_Resi_Transaction',
+          batch: Number(batch) || 1,
+        });
+
+        if (uraResult.success && Array.isArray(uraResult.data)) {
+          let properties = transformUraToProperties(uraResult.data);
+
+          // Apply filters
+          if (district && district !== 'all') {
+            properties = properties.filter((p: any) => p.district.toLowerCase() === (district as string).toLowerCase());
+          }
+          if (segment && segment !== 'all') {
+            properties = properties.filter((p: any) => p.marketSegment.toLowerCase() === (segment as string).toLowerCase());
+          }
+          if (propertyType && propertyType !== 'all') {
+            properties = properties.filter((p: any) => p.propertyType.toLowerCase() === (propertyType as string).toLowerCase());
+          }
+          if (search) {
+            const query = (search as string).toLowerCase();
+            properties = properties.filter((p: any) =>
+              p.projectName.toLowerCase().includes(query) ||
+              p.streetName.toLowerCase().includes(query) ||
+              p.district.toLowerCase().includes(query)
+            );
+          }
+
+          const total = properties.length;
+          const totalPages = Math.ceil(total / limitNum);
+          const startIndex = (pageNum - 1) * limitNum;
+          const paginatedData = properties.slice(startIndex, startIndex + limitNum);
+
+          return res.json({
+            success: true,
+            message: `Loaded ${total} live transactions from URA REALIS (Batch ${batch})`,
+            data: paginatedData,
+            pagination: {
+              page: pageNum,
+              limit: limitNum,
+              total,
+              totalPages,
+            },
+            appliedFilters: {
+              district: district || 'all',
+              segment: segment || 'all',
+              propertyType: propertyType || 'all',
+              search: search || '',
+            },
+            dataSource: 'Singapore URA REALIS (Live API)',
+            meta: uraResult.meta,
+          });
+        }
+      } catch (err) {
+        console.error('Error fetching live URA properties in /api/properties:', err);
+      }
+    }
+
+    // Default zero-data placeholder if no key configured or error
+    res.json({
+      success: true,
+      message: 'Zero-data placeholder active. Set URA_ACCESS_KEY in your environment to stream live Singapore URA residential transactions.',
       data: [],
       pagination: {
-        page: parseInt(page as string, 10) || 1,
-        limit: parseInt(limit as string, 10) || 20,
+        page: pageNum,
+        limit: limitNum,
         total: 0,
         totalPages: 0,
       },
@@ -58,7 +142,8 @@ async function startServer() {
         propertyType: propertyType || 'all',
         search: search || '',
       },
-      dataSource: 'Backend API Placeholder (Ready for integration)'
+      dataSource: 'Awaiting URA_ACCESS_KEY Feed',
+      uraIntegration: getUraStatus(),
     });
   });
 
