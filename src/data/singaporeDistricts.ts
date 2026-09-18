@@ -1,0 +1,56 @@
+import { SingaporeDistrict } from '../types/property';
+
+export const SINGAPORE_DISTRICTS: SingaporeDistrict[] = [
+  { districtCode: 'D01', name: 'Raffles Place, Marina Bay, Cecil, Suntec', region: 'CCR', postalSectors: ['01', '02', '03', '04', '05', '06'] },
+  { districtCode: 'D02', name: 'Tanjong Pagar, Chinatown, Anson', region: 'CCR', postalSectors: ['07', '08'] },
+  { districtCode: 'D03', name: 'Queenstown, Tiong Bahru, Alexandra', region: 'RCR', postalSectors: ['14', '15', '16'] },
+  { districtCode: 'D04', name: 'Telok Blangah, Harbourfront, Sentosa Cove', region: 'CCR', postalSectors: ['09', '10'] },
+  { districtCode: 'D05', name: 'Buona Vista, West Coast, Clementi New Town', region: 'RCR', postalSectors: ['11', '12', '13'] },
+  { districtCode: 'D06', name: 'City Hall, Clarke Quay, High Street', region: 'CCR', postalSectors: ['17'] },
+  { districtCode: 'D07', name: 'Bugis, Rochor, Middle Road, Beach Road', region: 'CCR', postalSectors: ['18', '19'] },
+  { districtCode: 'D08', name: 'Little India, Farrer Park, Serangoon Rd', region: 'RCR', postalSectors: ['20', '21'] },
+  { districtCode: 'D09', name: 'Orchard, Cairnhill, River Valley, Somerset', region: 'CCR', postalSectors: ['22', '23'] },
+  { districtCode: 'D10', name: 'Tanglin, Holland, Bukit Timah, Ardmore', region: 'CCR', postalSectors: ['24', '25', '26', '27'] },
+  { districtCode: 'D11', name: 'Newton, Novena, Dunearn Road, Watten', region: 'CCR', postalSectors: ['28', '29', '30'] },
+  { districtCode: 'D12', name: 'Balestier, Toa Payoh, Serangoon', region: 'RCR', postalSectors: ['31', '32', '33'] },
+  { districtCode: 'D13', name: 'Macpherson, Braddell, Potong Pasir', region: 'RCR', postalSectors: ['34', '35', '36', '37'] },
+  { districtCode: 'D14', name: 'Geylang, Paya Lebar, Eunos, Sims', region: 'RCR', postalSectors: ['38', '39', '40', '41'] },
+  { districtCode: 'D15', name: 'Marine Parade, Katong, Tanjong Rhu, Amber', region: 'RCR', postalSectors: ['42', '43', '44', '45'] },
+  { districtCode: 'D16', name: 'Bedok, Upper East Coast, Eastwood, Kew', region: 'OCR', postalSectors: ['46', '47', '48'] },
+  { districtCode: 'D17', name: 'Loyang, Changi, Flora Road', region: 'OCR', postalSectors: ['49', '50'] },
+  { districtCode: 'D18', name: 'Tampines, Pasir Ris', region: 'OCR', postalSectors: ['51', '52'] },
+  { districtCode: 'D19', name: 'Serangoon Garden, Hougang, Punggol, Sengkang', region: 'OCR', postalSectors: ['53', '54', '55', '82'] },
+  { districtCode: 'D20', name: 'Bishan, Ang Mo Kio, Thomson', region: 'RCR', postalSectors: ['56', '57'] },
+  { districtCode: 'D21', name: 'Upper Bukit Timah, Clementi Park, Ulu Pandan', region: 'RCR', postalSectors: ['58', '59'] },
+  { districtCode: 'D22', name: 'Jurong, Boon Lay, Tuas', region: 'OCR', postalSectors: ['60', '61', '62', '63', '64'] },
+  { districtCode: 'D23', name: 'Bukit Batok, Bukit Panjang, Choa Chu Kang', region: 'OCR', postalSectors: ['65', '66', '67', '68'] },
+  { districtCode: 'D24', name: 'Lim Chu Kang, Tengah', region: 'OCR', postalSectors: ['69', '70', '71'] },
+  { districtCode: 'D25', name: 'Kranji, Woodgrove, Woodlands', region: 'OCR', postalSectors: ['72', '73'] },
+  { districtCode: 'D26', name: 'Mandai, Upper Thomson, Springleaf', region: 'OCR', postalSectors: ['77', '78'] },
+  { districtCode: 'D27', name: 'Yishun, Sembawang', region: 'OCR', postalSectors: ['75', '76'] },
+  { districtCode: 'D28', name: 'Seletar, Yio Chu Kang', region: 'OCR', postalSectors: ['79', '80'] },
+];
+
+export const REGION_DETAILS = {
+  CCR: {
+    code: 'CCR',
+    name: 'Core Central Region',
+    description: 'Prime central districts (D09, D10, D11, Downtown Core, Sentosa Cove). High concentration of luxury condominiums and prime penthouses.',
+    color: 'emerald',
+    districts: ['D01', 'D02', 'D04', 'D06', 'D07', 'D09', 'D10', 'D11'],
+  },
+  RCR: {
+    code: 'RCR',
+    name: 'Rest of Central Region',
+    description: 'City fringe districts (Queenstown, Bishan, Marine Parade, Novena). Popular with working professionals and families seeking proximity to CBD.',
+    color: 'amber',
+    districts: ['D03', 'D05', 'D08', 'D12', 'D13', 'D14', 'D15', 'D20', 'D21'],
+  },
+  OCR: {
+    code: 'OCR',
+    name: 'Outside Central Region',
+    description: 'Suburban residential estates (Tampines, Jurong, Punggol, Woodlands). Typically offers accessible entry points for mass-market private condos and landed properties.',
+    color: 'sky',
+    districts: ['D16', 'D17', 'D18', 'D19', 'D22', 'D23', 'D24', 'D25', 'D26', 'D27', 'D28'],
+  },
+};

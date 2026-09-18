@@ -1,0 +1,6 @@
+{
+  "name": "Singapore Private Property Prices",
+  "description": "Dashboard and API placeholder platform for tracking Singapore private residential property prices, PSF metrics, transactions, and district trends.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
